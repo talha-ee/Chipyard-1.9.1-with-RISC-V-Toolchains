@@ -1,0 +1,84 @@
+###Install sbt (Scala build tool) — required to compile Chisel/Chipyard
+
+# Install sbt repository + sbt (official instructions)
+echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list
+curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x99E82A75642AC823" | sudo apt-key add -
+sudo apt update
+sudo apt install -y sbt
+
+###Verilator — build from source (recommended for latest SystemVerilog support)
+
+# choose an install prefix
+export TOOLS_DIR=$HOME/tools
+mkdir -p $TOOLS_DIR && cd $TOOLS_DIR
+
+# clone and build Verilator (pick a stable tag; this uses 'stable' latest-release branch)
+git clone https://github.com/verilator/verilator.git
+cd verilator
+# (optional) checkout a specific tag, e.g. git checkout v5.031
+# build & install:
+autoconf
+./configure --prefix=$TOOLS_DIR/verilator
+make -j$(nproc)
+make install
+
+# add to PATH (persist later in ~/.bashrc)
+export PATH=$TOOLS_DIR/verilator/bin:$PATH
+verilator --version
+
+###RISC-V GNU toolchain
+
+sudo mkdir -p /opt/riscv
+sudo chown $USER:$USER /opt/riscv
+
+cd $HOME/work
+git clone https://github.com/riscv-collab/riscv-gnu-toolchain.git
+cd riscv-gnu-toolchain
+git submodule update --init --recursive
+
+# configure + build (newlib baremetal toolchain as example)
+./configure --prefix=/opt/riscv
+make -j$(nproc)
+
+### If your system crashes or got error after running the command, do this
+first run this command:
+
+# check if you already have swap
+swapon --show
+
+# if empty, add a 4 GB swap file (adjust size if needed)
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+# make it permanent
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+###Resume the toolchain build with lower parallelism
+
+cd ~/workspace/riscv-gnu-toolchain
+make -j2
+
+###after finished check if you have installed RISC-V toolchain or not:
+
+/opt/riscv/bin/riscv64-unknown-elf-gcc --version
+
+
+
+###CHIPYARD setup
+
+# go to your workspace
+cd ~/work
+
+# clone chipyard
+git clone https://github.com/ucb-bar/chipyard.git
+cd chipyard
+
+# checkout the 1.9.x release tag
+git checkout 1.9.1
+
+# initialize all submodules except riscv-tools (you already built /opt/riscv)
+./scripts/init-submodules-no-riscv-tools.sh
+
+
